@@ -178,7 +178,7 @@ const VIEWS={
   },
   inv(){
     const c=calc(per),l=c.bu.slice().sort((a,b)=>b.date.localeCompare(a.date));
-    return perBar()+'<button class="add" data-add="buy">Compra de producto</button><button class="add" data-add="ins">Compra de insumo (estampas, bolsas, etiquetas)</button>'+`<p class="note">Invertido en mercadería ${PL[per]}: <b>${fm(sum(c.bu,b=>b.total))}</b></p>`+(l.length?l.map(b=>`<div class="item"><div><b>${esc(b.name)}</b><small>${b.qty} unidades, ${fd(b.date)}${b.note?', '+esc(b.note):''}</small></div><div class="amt"><b>${fm(b.total)}</b><small>${fm(b.total/b.qty)} c/u</small>${del('buys:'+b.id)}</div></div>`).join(''):'<div class="empty">Cuando compres o mandes a hacer mercadería, cargala acá y se suma sola al stock.</div>')+insBox();
+    return perBar()+'<button class="add" data-add="buy">Compra de producto</button><button class="add" data-add="ins">Compra de insumo (estampas, bolsas, etiquetas)</button>'+`<p class="note">Invertido en mercadería ${PL[per]}: <b>${fm(sum(c.bu,b=>b.total))}</b></p>`+(l.length?l.map(b=>`<div class="item edit" data-ebuy="${b.id}"><div><b>${esc(b.name)}</b><small>${b.qty} unidades, ${fd(b.date)}${b.note?', '+esc(b.note):''}</small></div><div class="amt"><b>${fm(b.total)}</b><small>${fm(b.total/b.qty)} c/u</small>${del('buys:'+b.id)}</div></div>`).join(''):'<div class="empty">Cuando compres o mandes a hacer mercadería, cargala acá y se suma sola al stock.</div>')+insBox();
   },
   gas(){
     const c=calc(per),l=c.ex.slice().sort((a,b)=>b.date.localeCompare(a.date));
@@ -221,7 +221,7 @@ function sheet(title,fields,ok,label,init,intro){
   $('#no').onclick=close;el.querySelector('.bk').onclick=close;
   if(init)init(els);
   $('#yes').onclick=()=>{
-    const v={};fields.forEach(f=>{if(f.t==='levels'){v[f.id]=[...els[f.id].querySelectorAll('.pr')].map(r=>({n:r.querySelector('.lnm').value.trim()||'Precio',p:pn(r.querySelector('.lpr').value),min:pn(r.querySelector('.lmn').value)})).filter(x=>x.p>0);return}if(f.t==='parts'){v[f.id]=[...els[f.id].querySelectorAll('.pr')].map(r=>{const s=r.querySelector('.pis').value,w=pn(r.querySelector('.pcs').value);return s?{iid:s,n:S.ins.find(i=>i.id===s).name,q:w}:{n:r.querySelector('.pnm').value.trim(),c:w}}).filter(x=>x.c>0||x.q>0);return}const x=els[f.id].value;v[f.id]=f.t==='n'?pn(x):(f.t==='date'&&!x?today():x.trim?x.trim():x)});
+    const v={};fields.forEach(f=>{if(f.t==='levels'){v[f.id]=[...els[f.id].querySelectorAll('.pr')].map(r=>({n:r.querySelector('.lnm').value.trim()||'Precio',p:pn(r.querySelector('.lpr').value),min:pn(r.querySelector('.lmn').value)})).filter(x=>x.p>0);return}if(f.t==='parts'){v[f.id]=[...els[f.id].querySelectorAll('.pr')].map(r=>{const s=r.querySelector('.pis').value,w=pn(r.querySelector('.pcs').value);return s?{iid:s,n:comps().find(i=>i.id===s).name,q:w}:{n:r.querySelector('.pnm').value.trim(),c:w}}).filter(x=>x.c>0||x.q>0);return}const x=els[f.id].value;v[f.id]=f.t==='n'?pn(x):(f.t==='date'&&!x?today():x.trim?x.trim():x)});
     const err=ok(v);
     if(err){toast(err);return}
     save();close();render();
@@ -229,11 +229,15 @@ function sheet(title,fields,ok,label,init,intro){
 }
 
 function partRow(n,c){return `<div class="pr"><input class="pnm" placeholder="Ej: estampa" value="${esc(n)}"><input class="pcs" inputmode="decimal" placeholder="Costo" value="${c===''?'':c}"><button type="button" class="xr">✕</button></div>`}
-function partRow2(x){x=x||{};return `<div class="pr"><select class="pis"><option value="">Otro costo</option>${S.ins.map(i=>`<option value="${i.id}"${x.iid===i.id?' selected':''}>${esc(i.name)}</option>`).join('')}</select><input class="pnm" placeholder="Detalle" value="${esc(x.n||'')}"${x.iid?' hidden':''}><input class="pcs" inputmode="decimal" placeholder="${x.iid?'Cant. por unidad':'Costo'}" value="${x.iid?(x.q||''):(x.c||'')}"><button type="button" class="xr">✕</button></div>`}
+function partRow2(x){x=x||{};return `<div class="pr"><select class="pis"><option value="">Otro costo</option>${comps().map(i=>`<option value="${i.id}"${x.iid===i.id?' selected':''}>${esc(i.name)}</option>`).join('')}</select><input class="pnm" placeholder="Detalle" value="${esc(x.n||'')}"${x.iid?' hidden':''}><input class="pcs" inputmode="decimal" placeholder="${x.iid?'Cant. por unidad':'Costo'}" value="${x.iid?(x.q||''):(x.c||'')}"><button type="button" class="xr">✕</button></div>`}
 const levelRow=l=>`<div class="pr"><input class="lnm" placeholder="Ej: por curva" value="${esc(l.n||'')}"><input class="lpr" inputmode="decimal" placeholder="Precio" value="${l.p||''}"><input class="lmn" inputmode="decimal" placeholder="Desde (u.)" value="${l.min||''}"><button type="button" class="xr">✕</button></div>`;
 function levelsInit(f){const b=f.l;b.onclick=e=>{const x=e.target.closest('.xr');if(x)x.parentNode.remove()};$('#addl').onclick=()=>b.insertAdjacentHTML('beforeend',levelRow({}))}
-const ucost=id=>{const b=S.buys.filter(x=>x.iid===id),q=sum(b,x=>x.qty);return q>0?sum(b,x=>x.total)/q:0};
-function recost(){S.products.forEach(p=>{if(p.parts&&p.parts.some(x=>x.iid))p.cost=sum(p.parts,x=>x.iid?x.q*ucost(x.iid):x.c)})}
+const ucost=id=>{if(!S.ins.some(i=>i.id===id)){const p=S.products.find(x=>x.id===id);return p?p.cost||0:0}const b=S.buys.filter(x=>x.iid===id),q=sum(b,x=>x.qty);return q>0?sum(b,x=>x.total)/q:0};
+const comps=()=>S.ins.concat(S.products);
+function recost(){
+  S.products.forEach(p=>{const b=S.buys.filter(x=>x.pid===p.id);if(b.length&&!(p.parts||[]).some(x=>x.iid)){const a=sum(b,x=>x.total)/Math.max(1,sum(b,x=>x.qty));p.cost=a;p.parts=[{n:'Compra (promedio)',c:a}]}});
+  for(let k=0;k<3;k++)S.products.forEach(p=>{if(p.parts&&p.parts.some(x=>x.iid))p.cost=sum(p.parts,x=>x.iid?x.q*ucost(x.iid):x.c)});
+}
 function insBox(){return S.ins.length?'<h2>Insumos y costo por unidad</h2>'+S.ins.map(i=>`<div class="item"><div><b>${esc(i.name)}</b><small>${sum(S.buys.filter(b=>b.iid===i.id),b=>b.qty)} unidades compradas</small></div><div class="amt"><b>${fm(ucost(i.id))}</b><small>por unidad</small></div></div>`).join('')+'<p class="note">En cada producto elegís qué insumos usa y cuántos por unidad. El costo se actualiza solo con tus compras.</p>':''}
 function partsInit(f){
   const box=f.k,tot=()=>{$('#ptot').innerHTML='Costo total por unidad: <b>'+fm(sum([...box.querySelectorAll('.pr')],r=>{const s=r.querySelector('.pis').value,w=pn(r.querySelector('.pcs').value);return s?w*ucost(s):w}))+'</b>'};
@@ -282,9 +286,16 @@ function add(k,id){
       p.stock=(p.stock||0)+v.q;
     },'Guardar compra',f=>{
       let touched=false;
-      const up=()=>{if(touched)return;const p=S.products.find(x=>x.id===f.p.value);f.t.value=Math.round((p.cost||0)*pn(f.q.value))||''};
+      const up=()=>{if(touched)return;const p=S.products.find(x=>x.id===f.p.value);void p};
       f.t.oninput=()=>{touched=true};f.p.onchange=up;f.q.oninput=up;
-    },'Se suma al stock del producto y cuenta como inversión. El costo total se calcula con el costo del producto, pero podés cambiarlo.');
+    },'Se suma al stock del producto y cuenta como inversión. Poné cuántas unidades compraste y cuánto pagaste en total. El costo de cada unidad es el total dividido la cantidad, y ese pasa a ser el costo del producto.');
+  }else if(k==='ebuy'){
+    const b=S.buys.find(x=>x.id===id);
+    sheet('Editar compra: '+esc(b.name),[{id:'q',l:'Cantidad',t:'n',v:b.qty},{id:'t',l:'Costo total pagado',t:'n',v:b.total}],v=>{
+      if(v.q<=0||v.t<=0)return 'Poné la cantidad y el costo total';
+      const p=b.pid&&S.products.find(x=>x.id===b.pid);if(p)p.stock=(p.stock||0)+v.q-b.qty;
+      b.qty=v.q;b.total=v.t;toast('Cada unidad te sale '+fm(v.t/v.q));
+    });
   }else if(k==='ins'){
     sheet('Compra de insumo',[{id:'i',l:'Insumo',t:'select',o:S.ins.map(i=>[i.id,esc(i.name)]).concat([['new','Insumo nuevo']]),v:S.ins.length?S.ins[0].id:'new'},{id:'n',l:'Nombre (solo si es nuevo)',t:'text',v:''},{id:'q',l:'Cantidad que vino',t:'n',v:''},{id:'t',l:'Costo total',t:'n',v:''},{id:'pm',l:'Pagado con',t:'select',o:MEDIOS,v:'ef'},{id:'d',l:'Fecha',t:'date',v:today()}],v=>{
       let i=S.ins.find(x=>x.id===v.i);
@@ -314,7 +325,7 @@ function add(k,id){
 }
 
 $('#v').onclick=e=>{
-  const t=e.target.closest('[data-per],[data-add],[data-del],[data-edit],[data-pay],[data-adj],[data-goal]');
+  const t=e.target.closest('[data-per],[data-add],[data-del],[data-edit],[data-pay],[data-adj],[data-goal],[data-ebuy]');
   if(!t)return;
   if(t.dataset.per){per=t.dataset.per;render()}
   else if(t.dataset.add)add(t.dataset.add);
@@ -325,6 +336,7 @@ $('#v').onclick=e=>{
   else if(t.dataset.pay)add('pay',t.dataset.pay);
   else if(t.dataset.adj)add('adj',t.dataset.adj);
   else if(t.dataset.goal)add('goal');
+  else if(t.dataset.ebuy)add('ebuy',t.dataset.ebuy);
 };
 $('#nav').onclick=e=>{const t=e.target.closest('[data-tab]');if(t){tab=t.dataset.tab;render();window.scrollTo(0,0)}};
 $('#bk').onclick=()=>sheet('Respaldo',[{id:'j',l:'Tus datos',t:'area',v:JSON.stringify(S)}],v=>{
