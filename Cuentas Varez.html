@@ -75,6 +75,17 @@ textarea{height:140px;font-size:13px}
 .btns{display:flex;gap:10px;margin-top:16px}
 .btns button{flex:1;padding:13px;border-radius:10px;border:0;font-weight:600;background:var(--acc);color:#fff}
 .btns .ghost{background:var(--soft);color:var(--ink)}
+/* Punto de venta */
+.pos-head{display:flex;justify-content:space-between;align-items:end;gap:10px;margin:12px 0}.pos-head h2{margin:0;font-size:21px;font-weight:800}.pos-count{font-size:12px;color:var(--mute)}
+.pos-search{margin:12px 0 14px}.pos-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pos-card{background:var(--surf);border:1px solid var(--line);border-radius:13px;padding:12px;min-width:0;display:flex;flex-direction:column;gap:7px}
+.pos-thumb{height:76px;border-radius:9px;background:linear-gradient(135deg,var(--soft),var(--bg));display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:var(--acc);letter-spacing:1px}
+.pos-card b{font-size:14px;line-height:1.25}.pos-price{font-size:18px;font-weight:800}.pos-stock{font-size:12px;color:var(--mute)}
+.pos-card button{border:0;border-radius:8px;padding:9px;background:var(--acc);color:white;font-weight:700;font-size:13px}.pos-card button:disabled{opacity:.4}
+.pos-layout{display:grid;grid-template-columns:1fr;gap:14px}.cart-box{background:var(--surf);border:1px solid var(--line);border-radius:13px;padding:14px}
+.cart-title{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}.cart-title b{font-size:16px}.cart-line{display:grid;grid-template-columns:1fr auto;gap:5px;padding:10px 0;border-bottom:1px solid var(--line)}
+.cart-line small{display:block;color:var(--mute);font-size:12px}.qty-tools{display:flex;align-items:center;gap:8px}.qty-tools button{width:27px;height:27px;border:1px solid var(--line);border-radius:7px;background:var(--bg);font-weight:800}.qty-tools .remove{border:0;background:none;color:var(--neg);width:auto}.cart-total{display:flex;justify-content:space-between;align-items:center;padding:14px 0 8px;font-weight:800}.cart-total strong{font-size:23px}.checkout{width:100%;border:0;border-radius:10px;background:var(--pos);color:white;padding:14px;font-weight:800;margin-top:6px}.checkout:disabled{opacity:.4}.cart-empty{text-align:center;color:var(--mute);padding:22px 8px;font-size:13px}
+@media(min-width:760px){main,header{max-width:1050px}.pos-layout{grid-template-columns:minmax(0,1.6fr) minmax(300px,.9fr);align-items:start}.cart-box{position:sticky;top:12px}.pos-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 #toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(130px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:8px;font-size:14px;z-index:20;max-width:90%}
 #toast[hidden],#sh[hidden]{display:none}
 </style>
@@ -99,11 +110,12 @@ const pad=n=>String(n).padStart(2,'0');
 const today=()=>{const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())};
 const fd=s=>s.slice(8,10)+'/'+s.slice(5,7);
 function pn(s){s=String(s).trim();if(/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s))s=s.replace(/\./g,'');return parseFloat(s.replace(',','.'))||0}
-const TABS=[['res','Resumen'],['ven','Ventas'],['inv','Invertir'],['gas','Gastos'],['pro','Productos'],['cli','Clientes'],['pla','Plata']];
+const TABS=[['res','Resumen'],['pos','Punto de venta'],['ven','Ventas'],['inv','Invertir'],['gas','Gastos'],['pro','Productos'],['cli','Clientes'],['pla','Plata']];
 const PER=[['d','Hoy'],['w','Semana'],['m','Mes'],['a','Todo']];
 const PL={d:'de hoy',w:'de esta semana',m:'de este mes',a:'en total'};
 const MOV={saque:'Usé plata del negocio',repuse:'Repuse plata al negocio',pedi:'Pedí prestado',devolvi:'Devolví un préstamo'};
 let tab='res',per='w';
+let cart=[],posQuery='';
 
 function inP(date,p){
   if(p==='a')return true;
@@ -170,6 +182,13 @@ function debtCards(){
 }
 
 const VIEWS={
+  pos(){
+    const list=S.products.filter(p=>p.name.toLowerCase().includes(posQuery.toLowerCase()));
+    const qty=sum(cart,x=>x.q),total=sum(cart,x=>x.q*x.pr);
+    const cards=list.map(p=>{const stock=stk(p),letter=esc(p.name.trim().slice(0,2).toUpperCase());return `<article class="pos-card"><div class="pos-thumb">${letter}</div><b>${esc(p.name)}</b><div class="pos-price">${fm(p.price)}</div><div class="pos-stock ${stock<=0?'neg':''}">${stock} disponibles</div><button data-pos-add="${p.id}" ${stock<=0?'disabled':''}>+ Agregar</button></article>`}).join('');
+    const lines=cart.map(x=>{const p=S.products.find(y=>y.id===x.pid);return `<div class="cart-line"><div><b>${esc(p?p.name:'Producto')}</b><small>${fm(x.pr)} c/u · ${fm(x.q*x.pr)}</small></div><div class="qty-tools"><button data-pos-dec="${x.pid}">−</button><b>${x.q}</b><button data-pos-inc="${x.pid}">+</button><button class="remove" data-pos-remove="${x.pid}">✕</button></div></div>`}).join('');
+    return `<div class="pos-head"><div><h2>Punto de venta</h2><div class="pos-count">Elegí productos y armá el pedido</div></div><span class="tag">${S.products.length} productos</span></div><input class="pos-search" id="posSearch" placeholder="Buscar producto..." value="${esc(posQuery)}"><div class="pos-layout"><section><div class="pos-grid">${cards||'<div class="empty">No hay productos. Cargalos desde la sección Productos.</div>'}</div></section><aside class="cart-box"><div class="cart-title"><b>Venta actual</b><span class="tag">${qty} unidades</span></div>${lines||'<div class="cart-empty">Todavía no agregaste productos.<br>Elegí artículos del catálogo para empezar.</div>'}<div class="cart-total"><span>Total</span><strong>${fm(total)}</strong></div><button class="checkout" data-pos-checkout ${cart.length?'':'disabled'}>Generar venta</button></aside></div>`;
+  },
   res(){
     const c=calc(per),top=Object.values(byProd(c.sl)).sort((a,b)=>b.gain-a.gain).slice(0,5);
     return perBar()+`<section class="hero"><p class="lbl">Ganancia neta ${PL[per]}</p><p class="big ${c.net<0?'neg':'pos'}">${fm(c.net)}</p></section>
@@ -365,9 +384,27 @@ function add(k,id){
   }
 }
 
+function checkoutCart(){
+  if(!cart.length)return;
+  const total=sum(cart,x=>x.q*x.pr);
+  sheet('Confirmar venta',[{id:'c',l:'Cliente (opcional)',t:'select',o:[['','Venta sin cliente']].concat(S.clients.map(c=>[c.id,esc(c.name)])),v:''},{id:'g',l:'Cuánto pagó ahora (vacío = pagó todo)',t:'text',m:1,v:''},{id:'pm',l:'Cómo pagó',t:'select',o:MEDIOS,v:'ef'},{id:'d',l:'Fecha',t:'date',v:today()}],v=>{
+    const cl=S.clients.find(c=>c.id===v.c),paid=v.g===''?total:pn(v.g);
+    if(paid<total&&!cl)return 'Elegí un cliente para registrar el saldo pendiente';
+    if(paid<0||paid>total)return 'El monto cobrado no puede superar el total';
+    for(const x of cart){const p=S.products.find(y=>y.id===x.pid);if(!p||stk(p)<x.q)return 'No hay stock suficiente de '+(p?p.name:'un producto')}
+    const gid=uid();
+    cart.forEach(x=>{const p=S.products.find(y=>y.id===x.pid),line=x.q*x.pr,s={id:uid(),gid,date:v.d,pid:p.id,name:p.name,qty:x.q,price:x.pr,cost:p.cost,cid:cl?cl.id:'',cname:cl?cl.name:'',paid:Math.min(line,paid*line/total),pm:v.pm,tn:''};const use=(p.parts||[]).filter(y=>y.iid&&y.q>0).map(y=>({iid:y.iid,n:x.q*y.q}));if(use.length){s.use=use;use.forEach(u=>{const c=S.products.find(y=>y.id===u.iid);if(c)c.stock=(c.stock||0)-u.n})}else p.stock=(p.stock||0)-x.q;S.sales.push(s)});
+    cart=[];posQuery='';toast('¡Venta registrada correctamente!');
+  },'Confirmar venta',null,'Total de la venta: '+fm(total)+'. El stock se descuenta automáticamente.');
+}
 $('#v').onclick=e=>{
-  const t=e.target.closest('[data-per],[data-add],[data-del],[data-edit],[data-pay],[data-adj],[data-goal],[data-ebuy]');
+  const t=e.target.closest('[data-per],[data-add],[data-del],[data-edit],[data-pay],[data-adj],[data-goal],[data-ebuy],[data-pos-add],[data-pos-inc],[data-pos-dec],[data-pos-remove],[data-pos-checkout]');
   if(!t)return;
+  if(t.dataset.posAdd){const p=S.products.find(x=>x.id===t.dataset.posAdd);if(p){const x=cart.find(x=>x.pid===p.id);if(x){if(x.q<stk(p))x.q++}else if(stk(p)>0)cart.push({pid:p.id,q:1,pr:p.price});render()}return}
+  if(t.dataset.posInc){const x=cart.find(x=>x.pid===t.dataset.posInc),p=S.products.find(y=>y.id===t.dataset.posInc);if(x&&p&&x.q<stk(p))x.q++;render();return}
+  if(t.dataset.posDec){const x=cart.find(x=>x.pid===t.dataset.posDec);if(x){x.q--;if(x.q<=0)cart=cart.filter(y=>y.pid!==x.pid)}render();return}
+  if(t.dataset.posRemove){cart=cart.filter(x=>x.pid!==t.dataset.posRemove);render();return}
+  if(t.hasAttribute('data-pos-checkout')){checkoutCart();return}
   if(t.dataset.per){per=t.dataset.per;render()}
   else if(t.dataset.add)add(t.dataset.add);
   else if(t.dataset.del){
@@ -379,6 +416,7 @@ $('#v').onclick=e=>{
   else if(t.dataset.goal)add('goal');
   else if(t.dataset.ebuy)add('ebuy',t.dataset.ebuy);
 };
+$('#v').addEventListener('input',e=>{if(e.target.id==='posSearch'){const n=e.target.selectionStart;posQuery=e.target.value;const y=window.scrollY;render();const f=$('#posSearch');if(f){f.focus();f.setSelectionRange(n,n)}window.scrollTo(0,y)}});
 $('#nav').onclick=e=>{const t=e.target.closest('[data-tab]');if(t){tab=t.dataset.tab;render();window.scrollTo(0,0)}};
 $('#bk').onclick=()=>sheet('Respaldo',[{id:'j',l:'Tus datos',t:'area',v:JSON.stringify(S)}],v=>{
   try{const o=JSON.parse(v.j);if(!Array.isArray(o.products)||!Array.isArray(o.sales))throw 0;S=Object.assign({products:[],sales:[],exp:[],mov:[],clients:[],pays:[],buys:[],fixed:[],init:{},goal:0,ins:[]},o)}catch(e){return 'El texto no es un respaldo válido'}
